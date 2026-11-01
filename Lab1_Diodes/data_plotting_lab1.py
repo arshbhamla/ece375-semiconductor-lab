@@ -34,6 +34,12 @@ def diode_model2(V, Rs):
     I = (n_fit * Vt / Rs) * lambertw(a * np.exp(exponent)) - Is_fit
     return np.real(I)
 
+def diode_model_full(V, Is, n, Rs):
+    Vt = kB * T / q
+    a = Rs * Is / (n * Vt)
+    exponent = (V + Rs * Is) / (n * Vt)
+    I = (n * Vt / Rs) * lambertw(a * np.exp(exponent)) - Is
+    return np.real(I)
 
 
 def main():
@@ -180,6 +186,86 @@ def main():
     plt.legend()
     plt.grid()
     plt.show()
+
+    # Full diode model using calculated Is, n, and Rs
+    Is_full = 2.973030437569094e-09
+    n_full = 1.867425697874471
+    Rs_full = 2.207621937224117
+
+    # Sweep input voltage
+    V_sweep = np.linspace(0, 0.8, 1000)
+
+    # Calculate current using the full diode model
+    I_sweep = diode_model_full(V_sweep, Is_full, n_full, Rs_full)
+
+    # Plot calculated IV curve
+    plt.figure()
+
+    plt.plot(V_sweep, I_sweep * 1000, 'b-', linewidth=2,
+             label="Full Diode Model")
+
+    plt.yscale("log")
+    plt.title("Calculated Semiconductor IV Curve")
+    plt.xlabel("Input Voltage [V]")
+    plt.ylabel("Calculated Current [mA]")
+
+    plt.text(
+        0.05, 0.95,
+        f"$I_s$ = {Is_full} A\n"
+        f"$n$ = {n_full}\n"
+        f"$R_s$ = {Rs_full} $\\Omega$",
+        transform=plt.gca().transAxes,
+        verticalalignment='top',
+        bbox=dict(facecolor='white', alpha=0.8)
+    )
+
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    # Compare experimental data with the full diode model
+    plt.figure()
+
+    # Experimental data
+    plt.scatter(
+        V_data,
+        I_data * 1000,
+        color='black',
+        s=20,
+        label="Experimental Data"
+    )
+
+    # Calculated full diode model
+    plt.plot(
+        V_sweep,
+        I_sweep * 1000,
+        color='red',
+        linewidth=2,
+        label="Calculated Full Diode Model"
+    )
+
+    plt.yscale("log")
+    plt.title("Experimental vs. Calculated Semiconductor IV Curve")
+    plt.xlabel("Input Voltage [V]")
+    plt.ylabel("Current [mA]")
+
+    plt.legend()
+    plt.grid(True, which="both", linestyle="--", alpha=0.5)
+
+    plt.text(
+        0.05, 0.95,
+        f"$I_s$ = {Is_full} A\n"
+        f"$n$ = {n_full}\n"
+        f"$R_s$ = {Rs_full} $\\Omega$",
+        transform=plt.gca().transAxes,
+        verticalalignment='top',
+        bbox=dict(facecolor='white', alpha=0.8)
+    )
+
+    plt.tight_layout()
+    plt.show()
+
+
 
 
 main()
