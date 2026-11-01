@@ -46,6 +46,7 @@ def main():
 
     # extracting the data from the csv file
     df = extractFile("375_lab1_data.csv")
+    df_calc = extractFile("375_lab1_simulation_data.csv")
 
     # plotting the linear IV curve
     plt.plot(df["Voltage"], df["Current mA"])
@@ -264,6 +265,67 @@ def main():
 
     plt.tight_layout()
     plt.show()
+
+    # Compare experimental data, simulation data, and full diode model
+
+    # Extract simulation data
+    V_sim = df_calc["Voltage"].to_numpy()
+    I_sim = df_calc["Current mA"].to_numpy()
+
+    plt.figure(figsize=(10, 7))
+
+    # Experimental data
+    plt.scatter(
+        V_data,
+        I_data * 1000,
+        color='black',
+        s=20,
+        label="Experimental Data",
+        zorder=3
+    )
+
+    # Simulation data
+    plt.scatter(
+        V_sim,
+        I_sim,
+        color='green',
+        s=20,
+        label="Simulation Data",
+        zorder=2
+    )
+
+    # Full diode model
+    plt.plot(
+        V_sweep,
+        I_sweep * 1000,
+        color='red',
+        linewidth=2,
+        label="Full Diode Model",
+        zorder=1
+    )
+
+    plt.yscale("log")
+    plt.title("Comparison of Experimental, Simulation, and Theoretical IV Curves")
+    plt.xlabel("Input Voltage [V]")
+    plt.ylabel("Current [mA]")
+
+    plt.legend()
+    plt.grid(True, which="both", linestyle="--", alpha=0.5)
+
+    plt.text(
+        0.05, 0.95,
+        f"$I_s$ = {Is_full} A\n"
+        f"$n$ = {n_full}\n"
+        f"$R_s$ = {Rs_full} $\\Omega$",
+        transform=plt.gca().transAxes,
+        verticalalignment='top',
+        bbox=dict(facecolor='white', alpha=0.8)
+    )
+
+    plt.tight_layout()
+    plt.show()
+
+
 
 
 
