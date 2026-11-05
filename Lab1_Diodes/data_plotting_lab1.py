@@ -41,6 +41,13 @@ def diode_model_full(V, Is, n, Rs):
     I = (n * Vt / Rs) * lambertw(a * np.exp(exponent)) - Is
     return np.real(I)
 
+def diode_model_full_temp(V, Is, n, Rs, T_diode):
+    Vt = kB * T_diode / q
+    a = Rs * Is / (n * Vt)
+    exponent = (V + Rs * Is) / (n * Vt)
+    I = (n * Vt / Rs) * lambertw(a * np.exp(exponent)) - Is
+    return np.real(I)
+
 
 def main():
 
@@ -324,6 +331,151 @@ def main():
 
     plt.tight_layout()
     plt.show()
+
+
+
+
+    # Full diode model with temperature dependence
+
+    # Reference parameters at 300 K
+    Is_300 = 2.973030437569094e-09
+    n_full = 1.867425697874471
+    Rs_full = 2.207621937224117
+
+    T_ref = 300
+
+    # Silicon intrinsic carrier concentration parameters
+    Eg0 = 1.17       # eV
+    alpha = 4.73e-4  # eV/K
+    beta = 636       # K
+    kB_eV = 8.617333262e-5  # eV/K
+
+    # Silicon bandgap as a function of temperature
+    def Eg(T):
+        return Eg0 - alpha * T**2 / (T + beta)
+
+    # Intrinsic carrier concentration ratio
+    def ni_ratio(T):
+        return (T / T_ref)**1.5 * np.exp(
+            -Eg(T) / (2 * kB_eV * T)
+            + Eg(T_ref) / (2 * kB_eV * T_ref)
+        )
+
+    # Saturation current calculated from intrinsic carrier concentration
+    def Is_temperature(T):
+        return Is_300 * ni_ratio(T)**2
+
+    # Temperatures
+    T1 = 375
+    T2 = 250
+
+    Is_T1 = Is_temperature(T1)
+    Is_T2 = Is_temperature(T2)
+
+    # Thermal voltages
+    Vth_T1 = kB * T1 / q
+    Vth_T2 = kB * T2 / q
+
+    print("\nTemperature-dependent diode parameters")
+
+    print(f"T1 = {T1} K")
+    print(f"Is(T1) = {Is_T1} A")
+    print(f"Vth(T1) = {Vth_T1} V")
+
+    print(f"\nT2 = {T2} K")
+    print(f"Is(T2) = {Is_T2} A")
+    print(f"Vth(T2) = {Vth_T2} V")
+
+    print(f"\nn = {n_full}")
+    print(f"Rs = {Rs_full} Ohms")
+
+    # Voltage sweep
+    V_reverse = np.arange(-5, 0, 0.02)
+    V_forward = np.arange(0, 3.0001, 0.005)
+
+    V_sweep = np.concatenate((V_reverse, V_forward))
+
+    # Calculate currents at both temperatures
+    I_T1 = diode_model_full_temp(
+        V_sweep, Is_T1, n_full, Rs_full, T1
+    )
+
+    I_T2 = diode_model_full_temp(
+        V_sweep, Is_T2, n_full, Rs_full, T2
+    )
+
+    # Plot both temperature-dependent I-V characteristics
+    plt.figure(figsize=(10, 7))
+
+    plt.plot(
+        V_sweep,
+        I_T1 * 1000,
+        color='red',
+        linewidth=2,
+        label=f'T = {T1} K'
+    )
+
+    plt.plot(
+        V_sweep,
+        I_T2 * 1000,
+        color='blue',
+        linewidth=2,
+        label=f'T = {T2} K'
+    )
+
+    plt.title("Temperature-Dependent Semiconductor I-V Characteristics")
+    plt.xlabel("Input Voltage [V]")
+    plt.ylabel("Current [mA]")
+
+    plt.grid(True, which="both", linestyle="--", alpha=0.5)
+    plt.axhline(0, color='black', linewidth=0.8)
+    plt.axvline(0, color='black', linewidth=0.8)
+
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # Logarithmic I-V plot for both temperatures
+
+    # Remove zero-voltage point
+    mask_nonzero = V_sweep != 0
+
+    V_plot = V_sweep[mask_nonzero]
+    I_T1_plot = I_T1[mask_nonzero]
+    I_T2_plot = I_T2[mask_nonzero]
+
+    # Logarithmic I-V plot
+    plt.figure(figsize=(10, 7))
+
+    plt.plot(
+        V_plot,
+        np.abs(I_T1_plot),
+        color='red',
+        linewidth=2,
+        label=f'T = {T1} K'
+    )
+
+    plt.plot(
+        V_plot,
+        np.abs(I_T2_plot),
+        color='blue',
+        linewidth=2,
+        label=f'T = {T2} K'
+    )
+
+    plt.yscale("log")
+
+    plt.title("Temperature-Dependent Semiconductor I-V Characteristics")
+    plt.xlabel("Voltage [V]")
+    plt.ylabel("Absolute Current [A]")
+
+    plt.xlim(-5, 3)
+    plt.grid(True, which="both", linestyle="--", alpha=0.5)
+
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
 
 
 
