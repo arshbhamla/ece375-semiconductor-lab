@@ -485,9 +485,8 @@ def main():
     )
 
     df_export = pd.DataFrame({
-        "Voltage [V]": V_export,
-        "Current [A]": I_export,
-        "Current [mA]": I_export * 1000
+        "Voltage": V_export,
+        "Current mA": I_export * 1000
     })
 
     df_export.to_csv("375_lab1_calculated_data.csv", index=False)
