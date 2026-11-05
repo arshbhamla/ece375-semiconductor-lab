@@ -478,7 +478,7 @@ def main():
 
     # Export calculated data to CSV file
 
-    V_export = np.linspace(0, 0.8, 1000)
+    V_export = np.linspace(0, 1, 101)
 
     I_export = diode_model_full(
         V_export, Is_full, n_full, Rs_full
