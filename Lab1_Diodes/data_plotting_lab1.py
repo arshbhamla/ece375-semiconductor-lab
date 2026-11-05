@@ -476,6 +476,23 @@ def main():
     plt.tight_layout()
     plt.show()
 
+    # Export calculated data to CSV file
+
+    V_export = np.linspace(0, 0.8, 1000)
+
+    I_export = diode_model_full(
+        V_export, Is_full, n_full, Rs_full
+    )
+
+    df_export = pd.DataFrame({
+        "Voltage [V]": V_export,
+        "Current [A]": I_export,
+        "Current [mA]": I_export * 1000
+    })
+
+    df_export.to_csv("375_lab1_calculated_data.csv", index=False)
+
+
 
 
 
