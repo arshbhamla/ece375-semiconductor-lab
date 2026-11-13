@@ -2,6 +2,7 @@ import os
 import pyvisa
 import time
 import pandas as pd
+import threading
 
 
 
@@ -77,31 +78,49 @@ print(power_supply)
 
 
 # saving the data
-multimeter_voltage_reading = []
+multimeter_current_reading = []
 power_supply_input_voltage = []
 
 
 
 
+# break test parameter
+# stop_event = threading.Event()
+# def listen_for_stop():
+#     while not stop_event.is_set():
+#         command = input("Type 'stop' to terminate the experiment: ")
+
+#         if command.strip().lower() == "stop":
+#             stop_event.set()
+#             break
+
+# listener = threading.Thread(target=listen_for_stop, daemon=True)
+# listener.start()
 
 
 
 # test
 power_supply.write(f"INST:NSEL 1")
 power_supply.write(f"VOLT 0")
-power_supply.write(f"CURR 0.3")
+power_supply.write(f"CURR 0.02")
 
-points = 100
+points = 200
+v_max = 3.4
+v_min = 2.2
+
 for i in range(points+1):
-    power_supply_voltage = i / points * 5
+    power_supply_voltage = i / points * (v_max - v_min) + v_min
     power_supply_input_voltage.append(power_supply_voltage)
     power_supply.write(f"VOLT {power_supply_voltage}")
     power_supply.write("OUTP ON")
     time.sleep(0.01) # in seconds
-    response = multimeter.query(f"MEAS:VOLT:DC?")
-    multimeter_voltage_reading.append(response)
+    response = multimeter.query(f"MEAS:CURR:DC?")
+    multimeter_current_reading.append(response)
     print(f"{response}\n")
     power_supply.write("OUTP OFF")
+    if float(response.strip()) > 2e-3:
+        break
+    print("\n\n")
     time.sleep(0.01)
 
 
@@ -112,7 +131,7 @@ for i in range(points+1):
 
 results = {
     "Input Voltage": power_supply_input_voltage,
-    "Measured Voltage": multimeter_voltage_reading
+    "Measured Voltage": multimeter_current_reading
 } 
 
 results = pd.DataFrame(results)
