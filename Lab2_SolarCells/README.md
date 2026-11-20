@@ -1,0 +1,1 @@
+This lab doesn't have a python data-collection file since it required 2 multimeters. The data points were collected using the benchtop multimeter in ammeter configuration and a handheld multimeter as a voltmeter. Everything were collected manually
