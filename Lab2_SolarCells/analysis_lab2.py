@@ -2,17 +2,36 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
+from scipy.special import lambertw
+from sklearn.metrics import r2_score
+
 
 raw_data = "375_lab2_raw_data.csv"
 T = 300
 q = 1.6e-19
 k = 1.381e-23
 
-def solar_cell_model(v_app, i_gen, i_s, n, T):
-    return i_gen - i_s * (np.exp(q * v_app / (n * k * T)) - 1)
+def solar_cell_model(v_app, i_gen, i_s, n, R_s, T):
+    v_app = np.asarray(v_app, dtype=float)
+    i_gen_A = i_gen / 1000
+    i_s_A = i_s / 1000
+    a = q / (n * k * T)
+    exponent = a * (
+        v_app + R_s * (i_gen_A + i_s_A)
+    )
+    z = (
+        a * R_s * i_s_A
+        * np.exp(exponent)
+    )
+    I_A = (
+        i_gen_A + i_s_A
+        - np.real(lambertw(z)) / (a * R_s)
+    )
+    return I_A * 1000
 
 def df_from_csv(file_location):
     return pd.read_csv(file_location)
+
 
 def main():
     lab_data = df_from_csv(raw_data)
@@ -63,24 +82,101 @@ def main():
     P_in = isc * voc * ff / conversion_efficiency
     print(f"The input power is {round(P_in, 3)}mW")
 
-    n_guess = 1
+    n_guess = 1.5
     i_gen_guess = isc
-    i_s_guess = 1e-9
+    R_s_guess = 1.0
+    i_s_guess = i_gen_guess / (np.exp(q*voc/(n_guess*k*T))-1)
+    print(f"The I_sat guess is {i_s_guess}")
 
     popt, pcov = curve_fit(
-    lambda V, Iph, Is, n: solar_cell_model(V, Iph, Is, n, T),
-    lab_data_V,
-    lab_data_I,
-    p0=[i_gen_guess, i_s_guess, n_guess],
-    bounds=([0, 0, 1], [100, 1e-2, 1.75]),
-    maxfev=50000
+        lambda V, Iph, Is, n, Rs:
+            solar_cell_model(V, Iph, Is, n, Rs, T),
+        lab_data_V,
+        lab_data_I,
+        p0=[i_gen_guess, i_s_guess, n_guess, R_s_guess],
+        bounds=(
+            [0, 1e-15, 1, 1e-9],
+            [100, 1e-2, 2, 100]
+        ),
+        maxfev=100000
     )
 
-    Iph_fit, Is_fit, n_fit = popt
+    Iph_fit, Is_fit, n_fit, Rs_fit = popt
 
     print(f"\nPhotocurrent: {round(Iph_fit,3)} mA")
-    print(f"Saturation Current: {round(Is_fit*10e3, 3)} uA")
-    print(f"Ideality Factor: {round(n_fit, 3)}")
+    print(f"Saturation Current: {round(Is_fit*1e6,3)} nA")
+    print(f"Ideality Factor: {round(n_fit,3)}")
+    print(f"Series Resistance: {round(Rs_fit,3)} Ohms")
+
+
+    V_data = lab_data_V.to_numpy()
+    I_data = lab_data_I.to_numpy()
+    V_fit = np.linspace(min(V_data), max(V_data), 500)
+
+    I_fit = solar_cell_model(
+        V_fit,
+        Iph_fit,
+        Is_fit,
+        n_fit,
+        Rs_fit,
+        T
+    )
+
+    I_predicted = solar_cell_model( # using this for the R^2 calculation
+        V_data,
+        Iph_fit,
+        Is_fit,
+        n_fit,
+        Rs_fit,
+        T
+    )
+
+    r_squared = r2_score(I_data, I_predicted)
+
+    print(f"\nR-squared: {r_squared}")
+
+    diode_sim_location = "375_lab2_spice_simulated_data.csv"
+    diode_sim_data = df_from_csv(diode_sim_location)
+    # print(diode_sim_data)
+    diode_sim_data_V = diode_sim_data["V1"]
+    diode_sim_data_I = diode_sim_data["I(V1)"] * 1e3
+
+    plt.figure()
+
+    plt.scatter(
+        V_data,
+        I_data,
+        color='blue',
+        label='Experimental Data',
+        zorder=3
+    )
+
+    plt.plot(
+        V_fit,
+        I_fit,
+        color='red',
+        linewidth=2,
+        label='Calculated Model'
+    )
+
+    plt.plot(
+        diode_sim_data_V.to_numpy(),
+        diode_sim_data_I.to_numpy(),
+        color='green',
+        linewidth=2,
+        label='Spice Model'
+    )
+
+    plt.xlabel("Voltage [V]")
+    plt.ylabel("Current [mA]")
+    plt.title("Solar Cell I-V Curve: Experimental vs Fitted")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+
+    plt.show()
+
+
+
 
 
 
