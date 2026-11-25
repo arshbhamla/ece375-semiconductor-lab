@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.optimize import curve_fit
 from scipy.special import lambertw
 from sklearn.metrics import r2_score
+from scipy.integrate import quad
 
 
 raw_data = "375_lab2_raw_data.csv"
@@ -28,6 +29,13 @@ def solar_cell_model(v_app, i_gen, i_s, n, R_s, T):
         - np.real(lambertw(z)) / (a * R_s)
     )
     return I_A * 1000
+
+def blackbody_radiation(wavelength, temp):
+    h = 6.62607015e-34 # planck's constant
+    c = 3e8 # speed of light
+    kb = 1.380649e-23
+
+    return 2*h*c**2 / wavelength**5 * (1/(np.exp(h*c/(wavelength*kb*temp))-1))
 
 def df_from_csv(file_location):
     return pd.read_csv(file_location)
@@ -141,40 +149,60 @@ def main():
     diode_sim_data_V = diode_sim_data["V1"]
     diode_sim_data_I = diode_sim_data["I(V1)"] * 1e3
 
-    plt.figure()
+    # plt.figure()
 
-    plt.scatter(
-        V_data,
-        I_data,
-        color='blue',
-        label='Experimental Data',
-        zorder=3
-    )
+    # plt.scatter(
+    #     V_data,
+    #     I_data,
+    #     color='blue',
+    #     label='Experimental Data',
+    #     zorder=3
+    # )
 
-    plt.plot(
-        V_fit,
-        I_fit,
-        color='red',
-        linewidth=2,
-        label='Calculated Model'
-    )
+    # plt.plot(
+    #     V_fit,
+    #     I_fit,
+    #     color='red',
+    #     linewidth=2,
+    #     label='Calculated Model'
+    # )
 
-    plt.plot(
-        diode_sim_data_V.to_numpy(),
-        diode_sim_data_I.to_numpy(),
-        color='green',
-        linewidth=2,
-        label='Spice Model'
-    )
+    # plt.plot(
+    #     diode_sim_data_V.to_numpy(),
+    #     diode_sim_data_I.to_numpy(),
+    #     color='green',
+    #     linewidth=2,
+    #     label='Spice Model'
+    # )
 
-    plt.xlabel("Voltage [V]")
-    plt.ylabel("Current [mA]")
-    plt.title("Solar Cell I-V Curve: Experimental vs Fitted")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
+    # plt.xlabel("Voltage [V]")
+    # plt.ylabel("Current [mA]")
+    # plt.title("Solar Cell I-V Curve: Experimental vs Fitted")
+    # plt.legend()
+    # plt.grid(True, alpha=0.3)
 
-    plt.show()
+    # plt.show()
 
+    temp = 5800 # surface of the sun
+    lower_lim = 420e-9
+    upper_lim = 1000e-9
+    sigma = 5.670374419e-8
+
+    total_5800 = sigma * temp**4 / np.pi
+
+    visible_5800, error = quad(blackbody_radiation, lower_lim, upper_lim, args=(temp,))
+
+    efficiency_5800 = (visible_5800 / total_5800) * 100
+    print(f"Efficiency 5800 of {efficiency_5800}")
+
+    temp = 7200
+    
+    visible_7200, error = quad(blackbody_radiation, lower_lim, upper_lim, args=(temp,))
+
+    total_7200 = sigma * temp**4 / np.pi
+
+    efficiency_7200 = (visible_7200 / total_7200) * 100
+    print(f"Efficiency 7200 of {efficiency_7200}")
 
 
 
