@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
+from scipy.special import lambertw
+from scipy.special import logsumexp
 from sklearn.metrics import r2_score
 
 blue_LED_location = "lab3_output_blueLED_csv.csv"
@@ -33,26 +35,56 @@ def two_iv_curves(dataframe1, dataframe2, title):
     plt.xlabel("Voltage [V]")
     plt.ylabel("Current [mA]")
 
-def led_model(Vapp, n, log_Is):
+def led_model(Vapp, n, log_Is, log_Rs):
+    # Shockley diode model including series resistance
     kb = 1.38e-23
     q = 1.602e-19
     T = 300
     Vth = kb*T/q
+
     Is = np.exp(log_Is)
-    return Is*(np.exp(Vapp/n/Vth)-1)
+    Rs = np.exp(log_Rs)
+    a = n*Vth
+
+    # Calculate Lambert W argument in logarithmic form
+    log_z = np.log(Rs*Is/a) + (np.asarray(Vapp, dtype=float) + Rs*Is)/a
+
+    # Prevent numerical overflow
+    z = np.exp(np.minimum(log_z, 700))
+
+    return np.asarray((a/Rs)*np.real(lambertw(z)) - Is)
 
 def led_curve_fitting(model, dataframe):
-    # no weights
     voltage = dataframe["Input Voltage"]
     current = dataframe["Measured Current"]
+
     return curve_fit(
-        model, 
-        voltage, 
-        current, 
-        p0=[1, np.log(1e-25)],
-        bounds=([1, np.log(1e-30)], [2, np.log(1e-5)]),
+        model,
+        voltage,
+        current,
+        p0=[1.5, np.log(1e-25), np.log(10)],
+        bounds=(
+            [1, np.log(1e-30), np.log(1e-3)],
+            [2, np.log(1e-5), np.log(2e1)]
+        ),
         maxfev=2000000
     )
+
+def calculate_threshold_voltage(dataframe, title, voltage_range):
+    voltage = dataframe["Input Voltage"]
+    current = dataframe["Measured Current"]
+    mask = (
+        (voltage >= voltage_range[0]) &
+        (voltage <= voltage_range[1])
+    )
+
+    voltage_linear = voltage[mask]
+    current_linear = current[mask]
+
+    m, b = np.polyfit(voltage_linear, current_linear, 1)
+
+    return -b/m # threshold voltage
+
 
 def main():
     blue_LED_data = df_from_csv(blue_LED_location)
@@ -73,17 +105,20 @@ def main():
     print(f"\nBlue parameters:\n"
         f"n = {round(popt_blue[0],6)}\n"
         f"Is = {round(np.exp(popt_blue[1])*1e26,6)} x 1e-26 A\n"
+        f"Rs = {round(np.exp(popt_blue[2]),6)} Ohms\n"
         )
     print(f"Green parameters:\n"
         f"n = {round(popt_green[0],6)}\n"
         f"Is = {round(np.exp(popt_green[1])*1e27,6)} x 1e-27 A\n"
+        f"Rs = {round(np.exp(popt_green[2]),6)} Ohms\n"
         )
     print(f"Red parameters:\n"
         f"n = {round(popt_red[0],6)}\n"
         f"Is = {round(np.exp(popt_red[1])*1e21,6)} x 1e-21 A\n"
+        f"Rs = {round(np.exp(popt_red[2]),6)} Ohms\n"
         )
 
-     # plotting measured vs calculated
+    # plotting measured vs calculated
     blue_LED_data["Calculated Current"] = led_model(
         blue_LED_data["Input Voltage"], *popt_blue
     )
@@ -113,11 +148,23 @@ def main():
         red_LED_data["Calculated Current"]
     )
 
-    print(f"\nR^2 Blue LED: {round(r2_blue,4)}")
-    print(f"R^2 Green LED: {round(r2_green,4)}")
-    print(f"R^2 Red LED: {round(r2_red,4)}")
+    print(f"\nR^2 Blue LED: {round(r2_blue,6)}")
+    print(f"R^2 Green LED: {round(r2_green,6)}")
+    print(f"R^2 Red LED: {round(r2_red,6)}\n\n")
 
-    plt.show()
+    # calculate threshold voltages
+    Vthres_blue = calculate_threshold_voltage(blue_LED_data, "Blue LED", (2.5, 2.65))
+    Ithres_blue = led_model(Vthres_blue, popt_blue[0], popt_blue[1], popt_blue[2])
+    print(f"Blue\nV_threshold = {round(Vthres_blue,4)}V\nI_threshold = {round(Ithres_blue*1e6,6)}uA\n")
+
+    Vthres_green = calculate_threshold_voltage(green_LED_data, "Green LED", (2.15, 2.2))
+    Ithres_green = led_model(Vthres_green, popt_green[0], popt_green[1], popt_green[2])
+    print(f"Green\nV_threshold = {round(Vthres_green,4)}V\nI_threshold = {round(Ithres_green*1e6,6)}uA\n")
+
+
+    Vthres_red = calculate_threshold_voltage(red_LED_data, "Red LED", (1.7, 1.85))
+    Ithres_red = led_model(Vthres_red, popt_red[0], popt_red[1], popt_red[2])
+    print(f"Red\nV_threshold = {round(Vthres_red,4)}V\nI_threshold = {round(Ithres_red*1e6,6)}uA\n")
 
     # Eg calculations
     # energy_blue = 4.14e-15*3e8/(455e-9)
@@ -128,6 +175,5 @@ def main():
     # print(energy_red)
 
 
-
-
 main()
+plt.show()
