@@ -1,10 +1,8 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 from scipy.special import lambertw
-from scipy.special import logsumexp
 from sklearn.metrics import r2_score
 
 blue_LED_location = "lab3_output_blueLED_csv.csv"
@@ -54,6 +52,42 @@ def led_model(Vapp, n, log_Is, log_Rs):
 
     return np.asarray((a/Rs)*np.real(lambertw(z)) - Is)
 
+def led_model_Is(Vapp, I, n, Rs):
+    kb = 1.38e-23
+    q = 1.602e-19
+    T = 300
+    Vth = kb*T/q
+    exponent = (np.asarray(Vapp) - np.asarray(I)*Rs)/(n*Vth)
+    return I / np.expm1(exponent)
+
+def compare_Is(dataframe, popt, target_voltage, title):
+    kb = 1.38e-23
+    q = 1.602e-19
+    T = 300
+
+    voltage = dataframe["Input Voltage"].to_numpy()
+    current = dataframe["Measured Current"].to_numpy()
+    index = np.argmin(np.abs(voltage - target_voltage))
+
+    V = voltage[index]
+    I = current[index]
+
+    n = popt[0]
+    Is_fitted = np.exp(popt[1])
+    Rs = np.exp(popt[2])
+
+    Is_calculated = led_model_Is(V, I, n, Rs)
+
+
+    percent_error = abs(Is_calculated - Is_fitted) / abs(Is_fitted) * 100
+
+    print(f"\n{title} Is Comparison:")
+    print(f"Measurement Voltage = {V} V")
+    print(f"Measurement Current = {I} A")
+    print(f"Fitted Is = {Is_fitted} A")
+    print(f"Calculated Is = {Is_calculated} A")
+    print(f"Percentage Error = {percent_error}%")
+
 def led_curve_fitting(model, dataframe):
     voltage = dataframe["Input Voltage"]
     current = dataframe["Measured Current"]
@@ -91,11 +125,12 @@ def main():
     green_LED_data = df_from_csv(green_LED_location)
     red_LED_data = df_from_csv(red_LED_location)
 
+
     # data plotting
-    # iv_curve_plot(blue_LED_data, "Blue LED")
-    # iv_curve_plot(green_LED_data, "Green LED")
-    # iv_curve_plot(red_LED_data, "Red LED")
-    # plt.show()
+    iv_curve_plot(blue_LED_data, "Blue LED")
+    iv_curve_plot(green_LED_data, "Green LED")
+    iv_curve_plot(red_LED_data, "Red LED")
+
 
     # curve fitting
     popt_blue, pcov_blue = led_curve_fitting(led_model, blue_LED_data)
@@ -118,6 +153,7 @@ def main():
         f"Rs = {round(np.exp(popt_red[2]),6)} Ohms\n"
         )
 
+
     # plotting measured vs calculated
     blue_LED_data["Calculated Current"] = led_model(
         blue_LED_data["Input Voltage"], *popt_blue
@@ -134,6 +170,7 @@ def main():
     )
     two_iv_curves(red_LED_data, red_LED_data, "Red LED")
 
+
     # calculate R^2 values
     r2_blue = r2_score(
         blue_LED_data["Measured Current"],
@@ -147,10 +184,10 @@ def main():
         red_LED_data["Measured Current"],
         red_LED_data["Calculated Current"]
     )
-
     print(f"\nR^2 Blue LED: {round(r2_blue,6)}")
     print(f"R^2 Green LED: {round(r2_green,6)}")
     print(f"R^2 Red LED: {round(r2_red,6)}\n\n")
+
 
     # calculate threshold voltages
     Vthres_blue = calculate_threshold_voltage(blue_LED_data, "Blue LED", (2.5, 2.65))
@@ -161,18 +198,25 @@ def main():
     Ithres_green = led_model(Vthres_green, popt_green[0], popt_green[1], popt_green[2])
     print(f"Green\nV_threshold = {round(Vthres_green,4)}V\nI_threshold = {round(Ithres_green*1e6,6)}uA\n")
 
-
     Vthres_red = calculate_threshold_voltage(red_LED_data, "Red LED", (1.7, 1.85))
     Ithres_red = led_model(Vthres_red, popt_red[0], popt_red[1], popt_red[2])
     print(f"Red\nV_threshold = {round(Vthres_red,4)}V\nI_threshold = {round(Ithres_red*1e6,6)}uA\n")
 
+
     # Eg calculations
-    # energy_blue = 4.14e-15*3e8/(455e-9)
-    # print(energy_blue)
-    # energy_green = 4.14e-15*3e8/(520e-9)
-    # print(energy_green)
-    # energy_red = 4.14e-15*3e8/(630e-9)
-    # print(energy_red)
+    energy_blue = 4.14e-15*3e8/(455e-9)
+    print(energy_blue)
+    energy_green = 4.14e-15*3e8/(520e-9)
+    print(energy_green)
+    energy_red = 4.14e-15*3e8/(630e-9)
+    print(energy_red)
+
+
+    # Compare calculated Is against fitted Is
+    compare_Is(blue_LED_data, popt_blue, 2.6, "Blue LED")
+    compare_Is(green_LED_data, popt_green, 2.2, "Green LED")
+    compare_Is(red_LED_data, popt_red, 1.8, "Red LED")
+
 
 
 main()
